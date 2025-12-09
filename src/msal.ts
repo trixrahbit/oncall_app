@@ -24,20 +24,33 @@ export const msalInstance = new PublicClientApplication(msalConfig);
 
 export const apiScope = (import.meta.env.VITE_API_SCOPE as string) || 'api://oncall/.default';
 
-// IMPORTANT: Handle the redirect response on page load so MSAL completes the
-// login flow and restores the authenticated account in memory. Without this,
-// the app may appear to stay on the sign-in screen because isAuthenticated
-// remains false after returning from Microsoft login.
-msalInstance.handleRedirectPromise().then((result) => {
-  const account = result?.account;
-  if (account) {
-    msalInstance.setActiveAccount(account);
+// Initialize MSAL and complete redirect processing before React renders,
+// so that an active account is reliably available to hooks on first paint.
+(async () => {
+  try {
+    await msalInstance.initialize();
+  } catch (e) {
+    // no-op: MSAL will throw if double-initialized; safe to ignore
   }
-}).catch(() => {
-  // Swallow errors here; they will surface during token acquisition if relevant.
-});
 
-// Ensure the active account is set after redirect/login so hooks reflect auth state
+  try {
+    const result = await msalInstance.handleRedirectPromise();
+    const account = result?.account;
+    if (account) {
+      msalInstance.setActiveAccount(account);
+    }
+  } catch {
+    // Swallow errors here; they will surface during token acquisition if relevant.
+  }
+
+  // Ensure an existing cached account is set active on startup
+  const existing = msalInstance.getAllAccounts();
+  if (existing.length && !msalInstance.getActiveAccount()) {
+    msalInstance.setActiveAccount(existing[0]);
+  }
+})();
+
+// Also keep active account in sync after login/token events
 msalInstance.addEventCallback((event) => {
   if (event.eventType === EventType.LOGIN_SUCCESS || event.eventType === EventType.ACQUIRE_TOKEN_SUCCESS) {
     const account = (event as any)?.payload?.account;
@@ -46,9 +59,3 @@ msalInstance.addEventCallback((event) => {
     }
   }
 });
-
-// Also set an active account on startup if MSAL restored a session
-const existing = msalInstance.getAllAccounts();
-if (existing.length && !msalInstance.getActiveAccount()) {
-  msalInstance.setActiveAccount(existing[0]);
-}

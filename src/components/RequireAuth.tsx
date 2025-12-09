@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { useIsAuthenticated, useMsal } from '@azure/msal-react';
 import { Button, tokens } from '@fluentui/react-components';
+import { apiScope } from '../msal';
 
 export default function RequireAuth() {
   const isAuth = useIsAuthenticated();
@@ -57,7 +58,11 @@ export default function RequireAuth() {
           <p style={{ margin: '0 0 20px', color: tokens.colorNeutralForeground3 }}>
             Please sign in with your Microsoft account to continue.
           </p>
-          <Button size="large" appearance="primary" onClick={() => instance.loginRedirect({})}>
+          <Button
+            size="large"
+            appearance="primary"
+            onClick={() => instance.loginRedirect({ scopes: [apiScope] })}
+          >
             Sign in
           </Button>
           <div style={{ marginTop: 16, color: tokens.colorNeutralForeground3, fontSize: 12 }}>
