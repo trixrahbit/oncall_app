@@ -24,6 +24,19 @@ export const msalInstance = new PublicClientApplication(msalConfig);
 
 export const apiScope = (import.meta.env.VITE_API_SCOPE as string) || 'api://oncall/.default';
 
+// IMPORTANT: Handle the redirect response on page load so MSAL completes the
+// login flow and restores the authenticated account in memory. Without this,
+// the app may appear to stay on the sign-in screen because isAuthenticated
+// remains false after returning from Microsoft login.
+msalInstance.handleRedirectPromise().then((result) => {
+  const account = result?.account;
+  if (account) {
+    msalInstance.setActiveAccount(account);
+  }
+}).catch(() => {
+  // Swallow errors here; they will surface during token acquisition if relevant.
+});
+
 // Ensure the active account is set after redirect/login so hooks reflect auth state
 msalInstance.addEventCallback((event) => {
   if (event.eventType === EventType.LOGIN_SUCCESS || event.eventType === EventType.ACQUIRE_TOKEN_SUCCESS) {
