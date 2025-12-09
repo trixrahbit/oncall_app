@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Dialog, DialogBody, DialogContent, DialogSurface, DialogTitle, DialogTrigger, Input, Label, Spinner, Switch, Textarea } from '@fluentui/react-components';
+import { Button, Dialog, DialogBody, DialogContent, DialogSurface, DialogTitle, DialogTrigger, Input, Label, Spinner, Switch, Textarea, tokens } from '@fluentui/react-components';
 import { useApi, User } from '../apiClient';
 
 type UserCreate = {
@@ -69,39 +69,41 @@ export default function UsersPage() {
         </Dialog>
       </div>
       {loading && <Spinner label="Loading users..." />}
-      {error && <div style={{ color: 'crimson', marginBottom: 8 }}>{error}</div>}
+      {error && <div style={{ color: tokens.colorPaletteRedForeground3, marginBottom: 8 }}>{error}</div>}
       {!loading && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={th}>Name</th>
-              <th style={th}>UPN</th>
-              <th style={th}>Email</th>
-              <th style={th}>Time Zone</th>
-              <th style={th}>Active</th>
-              <th style={th}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.user_id}>
-                <td style={td}>{u.display_name}</td>
-                <td style={td}>{u.upn}</td>
-                <td style={td}>{u.email}</td>
-                <td style={td}>{u.time_zone || ''}</td>
-                <td style={td}>{u.is_active ? 'Yes' : 'No'}</td>
-                <td style={td}>
-                  <Button size="small" onClick={() => setEditUser(u)}>Edit</Button>{' '}
-                  {u.is_active ? (
-                    <Button size="small" appearance="secondary" onClick={async () => { await api.post<User>(`/api/v1/users/${u.user_id}/deactivate`); load(); }}>Deactivate</Button>
-                  ) : (
-                    <Button size="small" appearance="primary" onClick={async () => { await api.post<User>(`/api/v1/users/${u.user_id}/activate`); load(); }}>Activate</Button>
-                  )}
-                </td>
+        <div style={{ overflowX: 'auto', border: `1px solid ${tokens.colorNeutralStroke2}`, borderRadius: 8, padding: 12, background: 'transparent' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'transparent' }}>
+            <thead>
+              <tr>
+                <th style={th}>Name</th>
+                <th style={th}>UPN</th>
+                <th style={th}>Email</th>
+                <th style={th}>Time Zone</th>
+                <th style={th}>Active</th>
+                <th style={th}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.user_id}>
+                  <td style={td}>{u.display_name}</td>
+                  <td style={td}>{u.upn}</td>
+                  <td style={td}>{u.email}</td>
+                  <td style={td}>{u.time_zone || ''}</td>
+                  <td style={td}>{u.is_active ? 'Yes' : 'No'}</td>
+                  <td style={td}>
+                    <Button size="small" onClick={() => setEditUser(u)}>Edit</Button>{' '}
+                    {u.is_active ? (
+                      <Button size="small" appearance="secondary" onClick={async () => { await api.post<User>(`/api/v1/users/${u.user_id}/deactivate`); load(); }}>Deactivate</Button>
+                    ) : (
+                      <Button size="small" appearance="primary" onClick={async () => { await api.post<User>(`/api/v1/users/${u.user_id}/activate`); load(); }}>Activate</Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <Dialog open={!!editUser} onOpenChange={(_, d) => setEditUser(d.open ? editUser : null)}>
@@ -113,8 +115,8 @@ export default function UsersPage() {
   );
 }
 
-const th: React.CSSProperties = { textAlign: 'left', borderBottom: '1px solid #ddd', padding: 8 };
-const td: React.CSSProperties = { borderBottom: '1px solid #eee', padding: 8 };
+const th: React.CSSProperties = { textAlign: 'left', borderBottom: `1px solid ${tokens.colorNeutralStroke2}`, padding: 8, color: tokens.colorNeutralForeground2 } as any;
+const td: React.CSSProperties = { borderBottom: `1px solid ${tokens.colorNeutralStroke1}`, padding: 8 } as any;
 
 function UserCreateDialog({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void; }) {
   const api = useApi();
@@ -137,21 +139,33 @@ function UserCreateDialog({ onCreated, onCancel }: { onCreated: () => void; onCa
   }
 
   return (
-    <DialogSurface>
+    <DialogSurface style={{ maxWidth: 520 }}>
       <DialogBody>
         <DialogTitle>New User</DialogTitle>
         <DialogContent>
-          {error && <div style={{ color: 'crimson', marginBottom: 8 }}>{error}</div>}
-          <Label>Entra Object Id (GUID)</Label>
-          <Input value={model.entra_object_id} onChange={(_, d) => setModel({ ...model, entra_object_id: d.value })} />
-          <Label>UPN</Label>
-          <Input value={model.upn} onChange={(_, d) => setModel({ ...model, upn: d.value })} placeholder="user@domain.com" />
-          <Label>Display Name</Label>
-          <Input value={model.display_name} onChange={(_, d) => setModel({ ...model, display_name: d.value })} />
-          <Label>Email</Label>
-          <Input value={model.email} onChange={(_, d) => setModel({ ...model, email: d.value })} />
-          <Label>Time Zone (IANA)</Label>
-          <Input value={model.time_zone} onChange={(_, d) => setModel({ ...model, time_zone: d.value })} />
+          {error && <div style={{ color: tokens.colorPaletteRedForeground3, marginBottom: 8 }}>{error}</div>}
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div>
+              <Label>Entra Object Id (GUID)</Label>
+              <Input value={model.entra_object_id} onChange={(_, d) => setModel({ ...model, entra_object_id: d.value })} placeholder="00000000-0000-0000-0000-000000000000"/>
+            </div>
+            <div>
+              <Label>UPN</Label>
+              <Input value={model.upn} onChange={(_, d) => setModel({ ...model, upn: d.value })} placeholder="user@domain.com" />
+            </div>
+            <div>
+              <Label>Display Name</Label>
+              <Input value={model.display_name} onChange={(_, d) => setModel({ ...model, display_name: d.value })} placeholder="Full name"/>
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input value={model.email} onChange={(_, d) => setModel({ ...model, email: d.value })} placeholder="user@domain.com"/>
+            </div>
+            <div>
+              <Label>Time Zone (IANA)</Label>
+              <Input value={model.time_zone} onChange={(_, d) => setModel({ ...model, time_zone: d.value })} placeholder="e.g., America/Chicago"/>
+            </div>
+          </div>
         </DialogContent>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
           <Button appearance="secondary" onClick={onCancel} disabled={busy}>Cancel</Button>
@@ -190,7 +204,7 @@ function UserEditDialog({ user, onSaved, onCancel }: { user: User; onSaved: () =
       <DialogBody>
         <DialogTitle>Edit User</DialogTitle>
         <DialogContent>
-          {error && <div style={{ color: 'crimson', marginBottom: 8 }}>{error}</div>}
+          {error && <div style={{ color: tokens.colorPaletteRedForeground3, marginBottom: 8 }}>{error}</div>}
           <Label>Display Name</Label>
           <Input value={model.display_name || ''} onChange={(_, d) => setModel({ ...model, display_name: d.value })} />
           <Label>Email</Label>
