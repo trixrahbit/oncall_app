@@ -44,10 +44,25 @@ export function useApi() {
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`API ${res.status}: ${text}`);
+      const snippet = text.slice(0, 200).replace(/\s+/g, ' ').trim();
+      throw new Error(`API ${res.status} ${res.statusText}: ${snippet}`);
     }
     if (res.status === 204) return undefined as unknown as T;
-    return (await res.json()) as T;
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.toLowerCase().includes('application/json')) {
+      return (await res.json()) as T;
+    }
+
+    // Fallback: got a successful response but not JSON (often an HTML error/redirect)
+    const text = await res.text();
+    const trimmed = text.trim().toLowerCase();
+    const looksHtml = trimmed.startsWith('<!doctype') || trimmed.startsWith('<html');
+    const hint = looksHtml
+      ? ' Received HTML. This often indicates a login redirect or a misconfigured API base/proxy.'
+      : '';
+    const snippet = text.slice(0, 200).replace(/\s+/g, ' ').trim();
+    throw new Error(`API ${res.status}: Expected JSON but got '${contentType || 'unknown'}'.${hint} Preview: ${snippet}`);
   }, [getToken]);
 
   return React.useMemo(() => ({

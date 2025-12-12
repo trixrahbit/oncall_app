@@ -15,7 +15,10 @@ export const msalConfig: Configuration = {
     navigateToLoginRequestUrl: false,
   },
   cache: {
-    cacheLocation: 'localStorage',
+    // Store tokens in sessionStorage to avoid persisting across browser restarts
+    // and reduce exposure if the machine is shared. This still allows tab reloads
+    // but clears tokens when the browser is closed.
+    cacheLocation: 'sessionStorage',
     storeAuthStateInCookie: false,
   },
 };

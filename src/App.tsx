@@ -207,6 +207,7 @@ export default function App() {
   const loc = useLocation();
   const isAuth = useIsAuthenticated();
   const api = useApi();
+  const { instance } = useMsal();
   // Mirror RequireAuth's dev bypass so nav shows in bypassed dev sessions
   const flagBypass = ((import.meta as any).env?.VITE_DEV_BYPASS_AUTH ?? '').toString() === 'true';
   const isDevBuild = Boolean((import.meta as any).env?.DEV);
@@ -252,6 +253,46 @@ export default function App() {
     setSettingsOpen(next);
     try { localStorage.setItem('nav.settingsOpen', next ? '1' : '0'); } catch {}
   }, [settingsOpen]);
+
+  // Inactivity auto-logout: sign out after 2 hours of no user interaction (configurable)
+  React.useEffect(() => {
+    if (!isAuth) return;
+    const minutes = Number((import.meta as any).env?.VITE_IDLE_TIMEOUT_MINUTES) || 120;
+    const timeoutMs = Math.max(1, minutes) * 60 * 1000;
+    let timer: number | undefined;
+
+    const reset = () => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        // Extra guard: only logout if still authenticated
+        instance.logoutRedirect().catch(() => {});
+      }, timeoutMs);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') reset();
+    };
+
+    const events: Array<[keyof WindowEventMap, EventListener]> = [
+      ['mousemove', reset],
+      ['keydown', reset],
+      ['click', reset],
+      ['scroll', reset],
+      ['touchstart', reset],
+      ['focus', reset],
+    ];
+
+    events.forEach(([evt, handler]) => window.addEventListener(evt, handler, { passive: true } as any));
+    document.addEventListener('visibilitychange', onVisibility);
+    // Start the timer when auth becomes active
+    reset();
+
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      events.forEach(([evt, handler]) => window.removeEventListener(evt, handler));
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [isAuth, instance]);
   return (
     <div className={showNav ? styles.layout : styles.layoutNoNav}>
       <HeaderNav />
@@ -297,7 +338,8 @@ export default function App() {
               <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/my" element={<MySchedulePage />} />
               <Route path="/incidents" element={<IncidentsPage />} />
-              <Route path="/alerts" element={isAdmin ? <AlertsPage /> : <Navigate to="/settings" replace />} />
+              {/* Alerts should be available to all users */}
+              <Route path="/alerts" element={<AlertsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/roles" element={isAdmin ? <RolesPage /> : <Navigate to="/settings" replace />} />
             </Route>

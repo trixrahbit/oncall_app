@@ -36,6 +36,7 @@ export default function CalendarPage() {
   const [genEnd, setGenEnd] = React.useState<string>('');
   const [busy, setBusy] = React.useState(false);
   const [syncBusy, setSyncBusy] = React.useState(false);
+  const [lastSyncUtc, setLastSyncUtc] = React.useState<string | null>(null);
 
   // Interactive calendar dialogs state
   const [qcState, setQcState] = React.useState<QuickCreateState>({ open: false, start: '', end: '', name: 'On-Call', primaryUserId: '', secondaryUserId: '' });
@@ -87,9 +88,23 @@ export default function CalendarPage() {
   React.useEffect(() => {
     const id = setInterval(() => {
       if (selectedRotationId) loadPeriods(selectedRotationId);
+      loadSyncState(selectedRotationId);
     }, 5 * 60 * 1000);
     return () => clearInterval(id);
   }, [selectedRotationId, loadPeriods]);
+
+  const loadSyncState = React.useCallback(async (rotationId?: string) => {
+    try {
+      const q = rotationId ? `?rotation_id=${rotationId}` : '';
+      const res = await api.get<{ last_synced_utc: string | null }>(`/api/v1/calendar/sync_state${q}`);
+      setLastSyncUtc(res?.last_synced_utc || null);
+    } catch {
+      // ignore
+      setLastSyncUtc(null);
+    }
+  }, [api]);
+
+  React.useEffect(() => { loadSyncState(selectedRotationId || undefined); }, [selectedRotationId, loadSyncState]);
 
   async function generate() {
     if (!selectedRotationId || !genStart || !genEnd) return;
@@ -149,7 +164,6 @@ export default function CalendarPage() {
   }, [periods, assignments, users]);
 
   async function syncNow() {
-    if (!selectedRotationId) return;
     setSyncBusy(true); setError(null);
     try {
       // determine window based on currently loaded periods, fallback to +/- 90d
@@ -158,11 +172,17 @@ export default function CalendarPage() {
       const minStart = starts.length ? new Date(Math.min(...starts)) : new Date(Date.now() - 30 * 24 * 3600 * 1000);
       const maxEnd = ends.length ? new Date(Math.max(...ends)) : new Date(Date.now() + 90 * 24 * 3600 * 1000);
       await api.post(`/api/v1/calendar/sync`, {
-        rotation_id: selectedRotationId,
+        rotation_id: selectedRotationId || null,
         start_utc: minStart.toISOString(),
         end_utc: maxEnd.toISOString(),
       });
-      await loadPeriods(selectedRotationId);
+      if (selectedRotationId) {
+        await loadPeriods(selectedRotationId);
+      } else {
+        // No rotation selected: re-load periods if any got created by background/default rotation
+        await load();
+      }
+      await loadSyncState(selectedRotationId || undefined);
     } catch (e: any) {
       setError(e.message || String(e));
     } finally {
@@ -218,7 +238,10 @@ export default function CalendarPage() {
             <div>
               <Label>&nbsp;</Label>
               <div>
-                <Button appearance="primary" onClick={syncNow} disabled={!selectedRotationId || syncBusy}>{syncBusy ? 'Syncing…' : 'Sync with OnCallCalendar'}</Button>
+                <Button appearance="primary" onClick={syncNow} disabled={syncBusy}>{syncBusy ? 'Syncing…' : 'Sync with OnCallCalendar'}</Button>
+                <div style={{ marginTop: 4, color: tokens.colorNeutralForeground3, fontSize: 12 }}>
+                  {lastSyncUtc ? `Last sync: ${new Date(lastSyncUtc).toLocaleString()}` : 'Last sync: —'}
+                </div>
               </div>
             </div>
           </div>
